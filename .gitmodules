@@ -1,0 +1,6 @@
+[submodule "Chat-Agent"]
+	path = Chat-Agent
+	url = git@github.com:arubinst/Chat-Agent.git
+[submodule "resonate2"]
+	path = resonate2
+	url = git@github.com:HEIG-RESONATE/resonate2.git

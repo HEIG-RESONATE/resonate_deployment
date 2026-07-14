@@ -1,0 +1,115 @@
+services:
+  api:
+    build:
+      context: ./resonate2
+    ports:
+      - "8081:8000"
+    volumes:
+      - ./resonate2:/app
+      - images-data:/app/images
+    env_file:
+      - ./resonate2/.env
+    environment:
+      MONGO_HOST: mongodb://resonate:${MONGO_PASSWORD}@mongodb:27017/resonate?authSource=admin
+    command: uvicorn main:app --host 0.0.0.0 --reload
+    depends_on:
+      - mongodb
+
+  frontend:
+    build:
+      context: ./resonate2/frontend
+      args:
+        VITE_CHAINLIT_URL: ${VITE_CHAINLIT_URL}
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - ./resonate2/frontend:/app
+      - ./resonate2/frontend/.htpasswd:/etc/nginx/.htpasswd:ro
+    depends_on:
+      - api
+      - agent
+
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: resonate
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+
+  mcp-gateway:
+    image: docker/mcp-gateway:latest
+    restart: unless-stopped
+
+    environment:
+      DOCKER_MCP_IN_CONTAINER: "1"
+      MCP_GATEWAY_AUTH_TOKEN: ${MCP_GATEWAY_AUTH_TOKEN}
+
+    command:
+      - --additional-catalog=/root/.docker/mcp/catalogs/my-catalog.yaml
+      - --registry=/root/.docker/mcp/registry.yaml
+      - --secrets=/run/secrets/mcp-secrets
+      - --transport=streaming
+      - --host=0.0.0.0
+      - --port=8811
+      - --verbose
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.docker/config.json:/root/.docker/config.json:ro
+      - ${HOME}/.docker/mcp/my-catalog.yaml:/root/.docker/mcp/catalogs/my-catalog.yaml:ro
+      - ${HOME}/.docker/mcp/registry.yaml:/root/.docker/mcp/registry.yaml:ro
+
+    secrets:
+      - mcp-secrets
+
+  mcp-gateway-health:
+    image: busybox:1.37
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - |
+        until wget -q --spider http://mcp-gateway:8811/health; do
+          sleep 2
+        done
+        sleep infinity
+    depends_on:
+      - mcp-gateway
+
+  agent:
+    build:
+      context: ./Chat-Agent
+    restart: unless-stopped
+    command:
+      - uv
+      - run
+      - chainlit
+      - run
+      - chainlit_app3.py
+      - -h
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    expose:
+      - "8000"
+    environment:
+      MCP_GATEWAY_URL: http://mcp-gateway:8811/mcp
+      MCP_GATEWAY_AUTH_TOKEN: ${MCP_GATEWAY_AUTH_TOKEN}
+    depends_on:
+      mcp-gateway-health:
+        condition: service_started
+
+secrets:
+  mcp-secrets:
+    file: ${HOME}/.docker/mcp/secrets.env
+
+volumes:
+  mongo-data:
+
+  images-data:
+    name: resonate2_images-data
