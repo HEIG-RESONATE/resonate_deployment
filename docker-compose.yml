@@ -65,6 +65,7 @@ services:
     command:
       - --additional-catalog=/root/.docker/mcp/catalogs/my-catalog.yaml
       - --registry=/root/.docker/mcp/registry.yaml
+      - --config=/root/.docker/mcp/config.yaml
       - --secrets=/run/secrets/mcp-secrets
       - --transport=streaming
       - --host=0.0.0.0

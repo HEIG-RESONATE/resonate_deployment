@@ -107,7 +107,14 @@ than configuring per machine:
 - `mcp/my-catalog.yaml` — server catalog (mounted into the gateway at
   `/root/.docker/mcp/catalogs/my-catalog.yaml`)
 - `mcp/registry.yaml` — enabled servers
-- `mcp/config.yaml` — optional non-secret per-server configuration
+- `mcp/config.yaml` — non-secret per-server configuration, loaded via the
+  gateway's `--config` flag. Supplies the `{{server.key}}` template values
+  that catalog entries reference (e.g. `resonate-mcp.api_base_url`); this is
+  the vendored home of the old `~/.docker/mcp/my-config.yaml`. A server whose
+  catalog entry references a template with no default will fail to start if
+  its value is missing here. The gateway spawns servers onto the compose
+  project network, so compose service names like `api` are the correct
+  targets for in-cluster URLs.
 
 ### 4. Start
 
@@ -160,6 +167,13 @@ like an agent bug but isn't. Check `docker compose logs mcp-gateway` for the
 verify `mcp/registry.yaml` names servers that exist in `mcp/my-catalog.yaml`
 and that both files were mounted (the same logs print which registry/catalog
 paths were read).
+
+**A specific MCP server crashes with `KeyError: '<SOME_VAR>'` in the gateway
+logs.** Its catalog entry references a `{{server.key}}` template that has no
+value. Check that (a) the gateway command includes
+`--config=/root/.docker/mcp/config.yaml`, and (b) `mcp/config.yaml` actually
+contains the referenced key. Without `--config` the gateway does not read the
+file at all and the env var is never passed (an absent var, not an empty one).
 
 **`up` fails with "bind source path does not exist".** One of the
 deployer-supplied files from step 3 is missing; the error names which.

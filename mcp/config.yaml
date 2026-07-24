@@ -1,5 +1,23 @@
-# Optional per-server configuration for MCP servers (non-secret values only;
-# secrets belong in config/secrets.env). Mounted at
-# /root/.docker/mcp/config.yaml, which the gateway merges as its default
-# config. Safe to leave empty.
-{}
+# Per-server configuration for MCP servers (non-secret values only; secrets
+# belong in config/secrets.env). This is the vendored home of what used to be
+# ~/.docker/mcp/my-config.yaml on the host. Mounted at
+# /root/.docker/mcp/config.yaml and loaded via the gateway's --config flag
+# (see docker-compose.yml). It supplies the {{server.key}} template values
+# referenced by catalog entries; a server whose catalog entry references a
+# template with no default (e.g. resonate-mcp.api_base_url) will fail to start
+# if its value is missing here.
+#
+# Networking: the gateway spawns each server container onto its own network,
+# which under compose is the shared project network — so compose service names
+# like `api` resolve by DNS and are the correct target here.
+resonate-mcp:
+  api_base_url: http://api:8000
+  public_base_url: http://resonate.iict-heig-vd.ch
+
+gdelt:
+  api_timeout: 30000
+  api_base_url: https://api.gdeltproject.org/api/v2/doc/doc
+  default_max_records: 50
+  default_timespan: 1month
+  user_agent: GDELT-MCP-Server/1.0
+  log_level: info
