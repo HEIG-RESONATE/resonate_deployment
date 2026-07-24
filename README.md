@@ -28,12 +28,22 @@ is copied from a template inside `Chat-Agent/`.
 
 ### 2. Log in to GHCR
 
-The images are **private**. Create a GitHub personal access token with
-`read:packages` and:
+The images are **private**, so a token is required even for pulling. GHCR does
+**not** accept your GitHub account password — you must use a **classic
+personal access token** (github.com → Settings → Developer settings →
+Personal access tokens → Tokens (classic)). Using an account password fails
+with an opaque `denied: denied` that looks like a typo'd password.
+
+Scopes depend on your role:
+
+- **Deploying (pull only):** `read:packages`
+- **Building and pushing the images:** `write:packages`
 
 ```bash
 docker login ghcr.io -u <github-username>
 ```
+
+Paste the PAT at the `Password:` prompt.
 
 ### 3. Create the configuration files
 
@@ -49,12 +59,46 @@ configured.
 | `config/htpasswd` | HTTP basic-auth users for the web UI and chat | `docker run --rm httpd:2.4-alpine htpasswd -nbB <user> '<password>' > config/htpasswd` |
 | `config/agent.toml` | Agent LLM credentials + MCP gateway URL | `cp Chat-Agent/config.example.toml config/agent.toml`, set the `[llm]` values; keep the `docker-mcp-gateway` entry as is |
 | `config/secrets.env` | Secrets handed to MCP servers by the gateway | `cp config/secrets.env.example config/secrets.env`, edit (may stay empty) |
-| `config/docker-auth.json` | Registry auth the gateway uses to pull MCP server images | `docker --config /tmp/docker-auth login ghcr.io` then `cp /tmp/docker-auth/config.json config/docker-auth.json` |
+| `config/docker-auth.json` | Registry auth the gateway uses to pull MCP server images | See "Creating config/docker-auth.json" below |
 
-Do **not** copy your host `~/.docker/config.json` as `config/docker-auth.json`:
-host files typically contain `credsStore` or `currentContext` entries that
-break inside the gateway container. The file must contain plain `auths`
-entries only.
+#### Creating `config/docker-auth.json`
+
+Do **not** copy your host `~/.docker/config.json`: host files typically
+contain `credsStore` or `currentContext` entries that break inside the
+gateway container. The file must contain plain `auths` entries only.
+
+Generate it with an isolated config directory (use a `read:packages` classic
+PAT as the password — see step 2):
+
+```bash
+docker --config /tmp/docker-auth login ghcr.io -u <github-username>
+```
+
+```bash
+cp /tmp/docker-auth/config.json config/docker-auth.json
+```
+
+**Then verify it** — if the host docker uses a credential helper
+(`credsStore`, e.g. `pass`), the login may have written the credential to the
+external store instead, leaving this file without a usable value. It then
+copies fine but silently fails to authenticate later:
+
+```bash
+cat config/docker-auth.json
+```
+
+You must see an `auths` → `ghcr.io` entry with a non-empty base64 `auth`
+value, and no `credsStore` key:
+
+```json
+{"auths": {"ghcr.io": {"auth": "<base64>"}}}
+```
+
+If the `auth` value is missing or empty, write the file by hand:
+
+```bash
+printf '{"auths":{"ghcr.io":{"auth":"%s"}}}\n' "$(printf '%s:%s' '<github-username>' '<PAT>' | base64 -w0)" > config/docker-auth.json
+```
 
 Non-secret MCP gateway configuration (which servers exist and which are
 enabled) is versioned in this repo under `./mcp/` — edit and commit rather
@@ -102,7 +146,9 @@ push images built on an arm64 machine. From a clean checkout:
 
 The script builds all three contexts, tags each with the parent-repo short SHA
 and `latest`, and prints (does not run) the `docker push` commands. Pushing
-requires `docker login ghcr.io` with a PAT that has `write:packages`.
+requires `docker login ghcr.io` with a **classic PAT** that has
+`write:packages` (pasted at the password prompt — GHCR rejects account
+passwords with `denied: denied`).
 
 ## Troubleshooting
 
