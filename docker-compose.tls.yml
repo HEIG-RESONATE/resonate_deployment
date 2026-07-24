@@ -1,0 +1,33 @@
+# Optional HTTPS overlay — opt-in via -f, on top of the pull-only compose:
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+#
+# Puts Caddy in front as the TLS terminator. Caddy takes host ports 80 and 443;
+# `ports: !reset []` clears the frontend's host publishing so the two don't
+# collide (frontend stays reachable at frontend:80 on the compose network).
+# Requires SITE_ADDRESS and ACME_EMAIL in .env (see .env.example).
+services:
+  frontend:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persist issued certs and the ACME account across restarts. Without
+      # this, every restart re-issues and can hit Let's Encrypt rate limits.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:

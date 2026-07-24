@@ -1,0 +1,28 @@
+# Caddy reverse proxy for the optional HTTPS overlay (docker-compose.tls.yml).
+#
+# SITE_ADDRESS and ACME_EMAIL come from the environment (see .env).
+# - SITE_ADDRESS a public hostname (e.g. resonate.iict-heig-vd.ch): Caddy
+#   automatically obtains and renews a Let's Encrypt certificate and redirects
+#   HTTP->HTTPS. Requires inbound 80 and 443 reachable from the internet and
+#   DNS for that name pointing at this host.
+# - SITE_ADDRESS "localhost" or an internal name: Caddy uses its own local CA
+#   (self-signed) — handy for local verification of this file.
+#
+# Caddy preserves the incoming Host header, terminates TLS, speaks HTTP/2, and
+# transparently upgrades the /chat websocket. The frontend keeps doing basic
+# auth and same-origin /chat and /api proxying; Caddy just wraps it in TLS.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy frontend:80
+
+	# Optional hardening once HTTPS is confirmed stable: pin browsers to HTTPS.
+	# Leave commented during rollout — a bad cert with HSTS active locks
+	# clients out for max-age. Do NOT add includeSubDomains on the shared
+	# *.iict-heig-vd.ch parent domain.
+	# header Strict-Transport-Security "max-age=31536000"
+}

@@ -10,6 +10,8 @@ application source beyond this repository.
   what plain `docker compose up` uses.
 - `docker-compose.dev.yml` — local development overlay, opt-in via `-f`: adds
   source builds and live reload. Never loaded unless you ask for it.
+- `docker-compose.tls.yml` — optional HTTPS overlay, opt-in via `-f`: puts
+  Caddy in front as a TLS terminator. See "HTTPS (optional)" below.
 
 ## Deploying on a fresh machine
 
@@ -130,6 +132,40 @@ is embedded same-origin at `http://<host>/chat/`. The API is published on
 
 To update later: `git pull --recurse-submodules`, then repeat the pull/up
 commands.
+
+## HTTPS (optional)
+
+The base compose serves plain HTTP on port 80. To add TLS without changing any
+of that, layer in the Caddy overlay — it puts Caddy in front on ports 80 and
+443, obtains a certificate, and reverse-proxies to the frontend. The base file
+is untouched; you select HTTPS at run time:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+```
+
+Set two values in `.env` first (templates are in `.env.example`):
+
+- `SITE_ADDRESS` — the public hostname to serve, e.g.
+  `resonate.iict-heig-vd.ch`. Caddy automatically obtains and renews a
+  **Let's Encrypt** certificate for it and redirects HTTP→HTTPS.
+- `ACME_EMAIL` — contact address for Let's Encrypt registration.
+
+**Requirements for the automatic certificate:** this host must be reachable
+from the public internet on **ports 80 and 443**, and DNS for `SITE_ADDRESS`
+must point directly at it (not at an institutional reverse proxy). Caddy uses
+port 80 for the ACME challenge and the redirect. If the box is not directly
+reachable, automatic issuance fails — you would then supply an
+institution-issued certificate instead (not covered here).
+
+The issued certificate and ACME account persist in the `caddy-data` named
+volume; keep it, or every restart re-issues and can hit Let's Encrypt rate
+limits. When running under HTTPS, set `public_base_url` in `mcp/config.yaml` to
+the `https://` form of your host.
+
+To verify the overlay locally without a public domain, set
+`SITE_ADDRESS=localhost`: Caddy serves with its own local CA (browsers warn,
+which is expected) so you can confirm the proxy path before deploying.
 
 ## Local development
 
