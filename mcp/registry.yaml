@@ -1,0 +1,31 @@
+# Enabled MCP servers for the gateway (names must exist in a loaded catalog).
+# Mounted at /root/.docker/mcp/registry.yaml and loaded via --registry.
+# Not secret — edit and commit.
+#
+# TODO(deployer): replace with the real content of ~/.docker/mcp/registry.yaml
+# from the server.
+registry:
+  time-server:
+    enabled: true
+  x-mcp:
+    enabled: false
+  osm-mcp:
+    enabled: true
+  geocode-server:
+    enabled: true
+  telegram-server:
+    enabled: true
+  fetch:
+    enabled: true
+  brave:
+    enabled: true
+  mongodb:
+    enabled: true
+  resonate-mcp:
+    enabled: true
+  image-downloader:
+    enabled: true
+  sentinelhub-mcp:
+    enabled: true
+  gdelt:
+    enabled: true

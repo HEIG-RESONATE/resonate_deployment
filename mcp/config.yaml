@@ -1,0 +1,5 @@
+# Optional per-server configuration for MCP servers (non-secret values only;
+# secrets belong in config/secrets.env). Mounted at
+# /root/.docker/mcp/config.yaml, which the gateway merges as its default
+# config. Safe to leave empty.
+{}

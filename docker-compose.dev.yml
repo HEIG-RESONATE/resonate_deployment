@@ -1,0 +1,18 @@
+# Local development overlay — opt-in, NOT loaded automatically. Restores
+# source builds and live reload on top of the pull-only docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  api:
+    build:
+      context: ./resonate2
+    command: uvicorn main:app --host 0.0.0.0 --reload
+    volumes:
+      - ./resonate2:/app
+
+  frontend:
+    build:
+      context: ./resonate2/frontend
+
+  agent:
+    build:
+      context: ./Chat-Agent

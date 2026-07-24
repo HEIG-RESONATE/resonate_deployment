@@ -1,44 +1,58 @@
+# Production deployment: pulls prebuilt images from GHCR, builds nothing.
+# Requires `docker login ghcr.io` (PAT with read:packages) and the files
+# listed in README.md under ./config/. For local development with source
+# checkouts, add the opt-in docker-compose.dev.yml overlay (build + reload).
 services:
   api:
-    build:
-      context: ./resonate2
+    image: ghcr.io/heig-resonate/resonate-api:latest
+    restart: unless-stopped
     ports:
-      - "8081:8000"
+      # Localhost only: the API has no auth of its own; public access goes
+      # through the frontend nginx (basic auth).
+      - "127.0.0.1:8081:8000"
     volumes:
-      - ./resonate2:/app
       - images-data:/app/images
     env_file:
-      - ./resonate2/.env
+      - ./config/api.env
     environment:
       MONGO_HOST: mongodb://resonate:${MONGO_PASSWORD}@mongodb:27017/resonate?authSource=admin
-    command: uvicorn main:app --host 0.0.0.0 --reload
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
 
   frontend:
-    build:
-      context: ./resonate2/frontend
-      args:
-        VITE_CHAINLIT_URL: ${VITE_CHAINLIT_URL}
+    image: ghcr.io/heig-resonate/resonate-frontend:latest
+    restart: unless-stopped
     ports:
       - "80:80"
+      # DEPRECATED: fallback chat vhost, slated for removal once same-origin
+      # /chat/ is confirmed in production (see frontend nginx.conf).
       - "8080:8080"
-    volumes:
-      - ./resonate2/frontend:/app
-      - ./resonate2/frontend/.htpasswd:/etc/nginx/.htpasswd:ro
+    secrets:
+      - source: htpasswd
+        target: /etc/nginx/.htpasswd
     depends_on:
-      - api
-      - agent
+      api:
+        condition: service_healthy
+      agent:
+        condition: service_healthy
 
   mongodb:
     image: mongo:7.0
+    restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: resonate
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
     volumes:
       - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
 
   mcp-gateway:
     image: docker/mcp-gateway:latest
@@ -59,54 +73,55 @@ services:
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOME}/.docker/config.json:/root/.docker/config.json:ro
-      - ${HOME}/.docker/mcp/my-catalog.yaml:/root/.docker/mcp/catalogs/my-catalog.yaml:ro
-      - ${HOME}/.docker/mcp/registry.yaml:/root/.docker/mcp/registry.yaml:ro
+      # Non-secret gateway configuration is versioned in ./mcp/ and mounted to
+      # the canonical in-container paths, so no host-side ~/.docker/mcp setup
+      # is needed. --additional-catalog paths must live under
+      # ~/.docker/mcp/catalogs/ inside the container.
+      - ./mcp/my-catalog.yaml:/root/.docker/mcp/catalogs/my-catalog.yaml:ro
+      - ./mcp/registry.yaml:/root/.docker/mcp/registry.yaml:ro
+      - ./mcp/config.yaml:/root/.docker/mcp/config.yaml:ro
 
     secrets:
       - mcp-secrets
+      # Minimal auths-only registry credentials for pulling MCP server images.
+      # Never mount the host's ~/.docker/config.json: credsStore/currentContext
+      # entries break inside the container.
+      - source: docker-auth
+        target: /root/.docker/config.json
 
-  mcp-gateway-health:
-    image: busybox:1.37
-    restart: unless-stopped
-    command:
-      - sh
-      - -c
-      - |
-        until wget -q --spider http://mcp-gateway:8811/health; do
-          sleep 2
-        done
-        sleep infinity
-    depends_on:
-      - mcp-gateway
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8811/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
 
   agent:
-    build:
-      context: ./Chat-Agent
+    image: ghcr.io/heig-resonate/resonate-agent:latest
     restart: unless-stopped
-    command:
-      - uv
-      - run
-      - chainlit
-      - run
-      - chainlit_app3.py
-      - -h
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
     expose:
       - "8000"
+    secrets:
+      - source: agent-config
+        target: /app/config.toml
     environment:
-      MCP_GATEWAY_URL: http://mcp-gateway:8811/mcp
       MCP_GATEWAY_AUTH_TOKEN: ${MCP_GATEWAY_AUTH_TOKEN}
     depends_on:
-      mcp-gateway-health:
-        condition: service_started
+      mcp-gateway:
+        condition: service_healthy
 
+# Deployer-supplied files. Declared as secrets (not bind mounts) so a missing
+# file fails `docker compose up` loudly instead of silently mounting an empty
+# directory.
 secrets:
   mcp-secrets:
-    file: ${HOME}/.docker/mcp/secrets.env
+    file: ./config/secrets.env
+  docker-auth:
+    file: ./config/docker-auth.json
+  htpasswd:
+    file: ./config/htpasswd
+  agent-config:
+    file: ./config/agent.toml
 
 volumes:
   mongo-data:

@@ -1,0 +1,9 @@
+{
+  "//": "Copy to config/docker-auth.json. Minimal registry-auth file mounted into the MCP gateway at /root/.docker/config.json so it can pull private MCP server images from GHCR. Do NOT copy your host ~/.docker/config.json here: entries like credsStore or currentContext break inside the container.",
+  "//generate": "docker --config /tmp/docker-auth login ghcr.io  (PAT with read:packages), then: cp /tmp/docker-auth/config.json config/docker-auth.json",
+  "auths": {
+    "ghcr.io": {
+      "auth": "<base64 of USERNAME:PAT>"
+    }
+  }
+}

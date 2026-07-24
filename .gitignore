@@ -1,1 +1,5 @@
 .env
+
+# Deployer-supplied configuration (examples are committed, real files are not)
+config/*
+!config/*.example

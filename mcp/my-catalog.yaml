@@ -1,0 +1,186 @@
+# MCP server catalog for the RESONATE deployment.
+# Mounted at /root/.docker/mcp/catalogs/my-catalog.yaml inside the gateway
+# container and loaded via --additional-catalog. Not secret — edit and commit.
+#
+# TODO(deployer): replace the registry section below with the real catalog
+# entries currently in ~/.docker/mcp/my-catalog.yaml on the server.
+version: 2
+name: my-catalog
+displayName: RESONATE Custom Servers
+registry:
+  time-server:
+    title: Time MCP Server
+    image: ghcr.io/heig-resonate/time-mcp-server:latest
+    type: server
+    description: Custom time MCP server
+  x-mcp:
+    title: Resonate X MCP
+    image: ghcr.io/heig-resonate/x-mcp:latest
+    type: server
+    prefix: x
+    description: Twitter/X MCP server
+    secrets:
+      - name: x-mcp.x_oauth_consumer_key
+        env: X_OAUTH_CONSUMER_KEY
+      - name: x-mcp.x_oauth_consumer_secret
+        env: X_OAUTH_CONSUMER_SECRET
+      - name: x-mcp.x_oauth_access_token
+        env: X_OAUTH_ACCESS_TOKEN
+      - name: x-mcp.x_oauth_access_token_secret
+        env: X_OAUTH_ACCESS_TOKEN_SECRET
+      - name: x-mcp.x_bearer_token
+        env: X_BEARER_TOKEN
+  osm-mcp:
+    title: OpenStreetMap MCP Server
+    image: ghcr.io/heig-resonate/osm-mcp-server:latest
+    type: server
+    description: Location-based services and geospatial data via OpenStreetMap
+  geocode-server:
+    title: Geocode MCP
+    image: ghcr.io/heig-resonate/geocode-mcp:latest
+    type: server
+    description: Geocoding service
+  telegram-server:
+    title: Telegram MCP
+    image: ghcr.io/heig-resonate/telegram-mcp:latest
+    type: server
+    description: Telegram MCP server
+    secrets:
+      - name: telegram-server.api_id
+        env: TELEGRAM_API_ID
+      - name: telegram-server.api_hash
+        env: TELEGRAM_API_HASH
+      - name: telegram-server.session_string
+        env: TELEGRAM_SESSION_STRING
+      - name: telegram-server.session_name
+        env: TELEGRAM_SESSION_NAME
+  fetch:
+    description: Fetches a URL from the internet and extracts its contents as markdown.
+    title: Fetch (Reference)
+    type: server
+    dateAdded: "2025-05-05T20:08:35Z"
+    image: mcp/fetch@sha256:11815bc91b07110f9898b54dd06629731c9b61c34437cc64d2c89f7a27682ac6
+    ref: ""
+  brave:
+    description: Search the Web for pages, images, news, videos, and more using the Brave Search API.
+    title: Brave Search
+    type: server
+    dateAdded: "2025-05-05T20:08:35Z"
+    image: mcp/brave-search@sha256:f58a5c22c1196ec7bd1ca586ce216f2334fc298550ddcf652c0e8adb6d256d78
+    secrets:
+      - name: brave.api_key
+        env: BRAVE_API_KEY
+    ref: ""
+  mongodb:
+    description: A Model Context Protocol server to connect to MongoDB databases and MongoDB Atlas Clusters.
+    title: MongoDB
+    type: server
+    dateAdded: "2025-05-15T20:04:34Z"
+    image: mcp/mongodb@sha256:ff2c26477b755e81918f8d07df90ede01f72bd799a2286f2c6f82743101fa73c
+    secrets:
+      - name: mongodb.connection_string
+        env: MDB_MCP_CONNECTION_STRING
+    ref: ""
+  resonate-mcp:
+    title: Resonate MCP
+    image: ghcr.io/heig-resonate/resonate-mcp:latest
+    type: server
+    description: Resonate2 API MCP server
+    env:
+      - name: RESONATE_API_BASE_URL
+        value: "{{resonate-mcp.api_base_url}}"
+      - name: RESONATE_PUBLIC_BASE_URL
+        value: "{{resonate-mcp.public_base_url}}"
+    secrets:
+      - name: resonate-mcp.resonate_admin_password
+        env: RESONATE_ADMIN_PASSWORD
+    volumes:
+      - resonate2_images-data:/app/images
+#  image-downloader:
+#    title: Image Downloader MCP
+#    image: ghcr.io/heig-resonate/mcp-image-downloader:latest
+#    type: server
+#    description: Downloads an image from a URL to a local path
+#    volumes:
+#      - resonate2_images-data:/app/images
+  sentinelhub-mcp:
+    title: SentinelHub MCP
+    image: ghcr.io/heig-resonate/sentinelhub-mcp:latest
+    type: server
+    description: Downloads Sentinel-2 satellite imagery from Copernicus Data Space Ecosystem
+    secrets:
+      - name: sentinelhub-mcp.sh_client_id
+        env: SH_CLIENT_ID
+      - name: sentinelhub-mcp.sh_client_secret
+        env: SH_CLIENT_SECRET
+    volumes:
+      - resonate2_images-data:/app/images
+
+
+  gdelt:
+    title: GDELT
+    type: server
+    image: ghcr.io/heig-resonate/mcp-gdelt:latest
+    description: Search global news articles and images through the GDELT DOC 2.0 API.
+    readme: https://github.com/HEIG-RESONATE/mcp-gdelt#docker-mcp-gateway
+    allowHosts:
+      - api.gdeltproject.org:443
+    env:
+      - name: GDELT_API_TIMEOUT
+        value: "{{gdelt.api_timeout}}"
+      - name: GDELT_API_BASE_URL
+        value: "{{gdelt.api_base_url}}"
+      - name: GDELT_DEFAULT_MAX_RECORDS
+        value: "{{gdelt.default_max_records}}"
+      - name: GDELT_DEFAULT_TIMESPAN
+        value: "{{gdelt.default_timespan}}"
+      - name: GDELT_USER_AGENT
+        value: "{{gdelt.user_agent}}"
+      - name: LOG_LEVEL
+        value: "{{gdelt.log_level}}"
+    tools:
+      - name: search_articles
+        description: Search GDELT global news articles.
+        annotations:
+          readOnlyHint: true
+          idempotentHint: true
+          openWorldHint: true
+      - name: search_images
+        description: Search GDELT Visual Knowledge Graph images.
+        annotations:
+          readOnlyHint: true
+          idempotentHint: true
+          openWorldHint: true
+    config:
+      - name: gdelt
+        description: Optional GDELT API and logging settings.
+        type: object
+        properties:
+          api_timeout:
+            type: number
+            description: GDELT request timeout in milliseconds.
+            default: 30000
+            minimum: 1000
+          api_base_url:
+            type: string
+            description: GDELT DOC 2.0 endpoint. Keep the default when using the network allowlist.
+            default: https://api.gdeltproject.org/api/v2/doc/doc
+          default_max_records:
+            type: number
+            description: Default number of records returned by a search.
+            default: 50
+            minimum: 1
+            maximum: 250
+          default_timespan:
+            type: string
+            description: Default GDELT search timespan.
+            default: 1month
+          user_agent:
+            type: string
+            description: HTTP User-Agent sent to GDELT.
+            default: GDELT-MCP-Server/1.0
+          log_level:
+            type: string
+            description: Server log level.
+            default: info
+            enum: [debug, info, warn, error]

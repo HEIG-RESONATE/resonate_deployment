@@ -1,0 +1,10 @@
+# Deployment copy of the Chat-Agent configuration.
+#
+# The canonical, always-up-to-date example lives in the Chat-Agent submodule:
+#
+#     cp Chat-Agent/config.example.toml config/agent.toml
+#
+# Then edit config/agent.toml and fill in your [llm] credentials (base_url,
+# api_key, model). The [[mcp_servers]] docker-mcp-gateway entry it contains
+# (url = "http://mcp-gateway:8811/mcp") is already correct for this compose
+# deployment — leave it as is. Do not copy THIS file; it is only a pointer.
