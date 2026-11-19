@@ -102,11 +102,16 @@ services:
     restart: unless-stopped
     expose:
       - "8000"
+    volumes:
+      # Read-only view of the images the MCP servers save, so the chat can
+      # display them. Same path the servers report (/app/images/<file>).
+      - images-data:/app/images:ro
     secrets:
       - source: agent-config
         target: /app/config.toml
     environment:
       MCP_GATEWAY_AUTH_TOKEN: ${MCP_GATEWAY_AUTH_TOKEN}
+      RESONATE_IMAGES_DIR: /app/images
     depends_on:
       mcp-gateway:
         condition: service_healthy

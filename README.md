@@ -1,3 +1,11 @@
+# ATTENTION: armasuisse will need to reconfigure:
+
+- the gmail account (change password and phone number) 
+- setup a telegram account
+- the x account (change password and phone number)
+
+See creds.txt for access
+
 # RESONATE deployment
 
 Single-command deployment of the RESONATE system: FastAPI backend (`api`),
@@ -15,8 +23,59 @@ application source beyond this repository.
 
 ## Deploying on a fresh machine
 
+### In case there's no git and/or Docker installed
+
+For git:
+
+
+```bash
+sudo apt update
+sudo apt install -y git
+
+git --version
+git config --global user.name "Abraham Rubinstein"
+git config --global user.email "abraham.rubinstein@gmail.com"
+```
+
+For Docker:
+
+```bash
+# Add Docker's official GPG key:
+sudo apt update
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+Check status:
+
+```bash
+sudo systemctl status docker
+```
+
+If not running:
+
+```bash
+sudo systemctl start docker
+```
+
 Prerequisites: Docker Engine with Compose v2 (tested with Compose v5.3.1),
-git, and access to the private `ghcr.io/heig-resonate` packages.
+git, and access to the private `ghcr.io/heig-resonate` packages. (**ACCESS IS NOW PUBLIC TO SIMPLIFY PROCESS**)
 
 ### 1. Clone
 
@@ -25,10 +84,15 @@ git clone --recurse-submodules <this-repo-url>
 cd resonate_deployment
 ```
 
+```bash
+git clone --recurse-submodules git@github.com:HEIG-RESONATE/resonate_deployment.git
+cd resonate_deployment
+```
+
 The submodules are needed even for pull-only deployments: `config/agent.toml`
 is copied from a template inside `Chat-Agent/`.
 
-### 2. Log in to GHCR
+### 2. Log in to GHCR (**ACCESS IS NOW PUBLIC TO SIMPLIFY PROCESS - No need for login**)
 
 The images are **private**, so a token is required even for pulling. GHCR does
 **not** accept your GitHub account password — you must use a **classic
@@ -46,6 +110,87 @@ docker login ghcr.io -u <github-username>
 ```
 
 Paste the PAT at the `Password:` prompt.
+
+### We need an MCP gateway token. It will be generated on the gateway first run. (The one already present in the config file might work)
+
+```bash
+docker run \                                                                                                                                          
+    --name mcp \
+    --restart=always \
+    -v mcp-data:/var/lib/mcp \
+    -p 3000:3000/tcp \
+    -d hwdsl2/mcp-gateway
+docker logs mcp
+```
+
+Then, copy the bearer key starting with ``mcp-``
+
+### Generate a JWT secret
+
+```bash
+openssl rand -hex 64
+```
+
+Save for api.env
+
+### config/agent.toml
+
+```
+[llm]
+base_url = "https://litellm.intlab.ch/v1"
+api_key = "sk-o02Ny6i2dRxIImI8L_xxIw"
+model = "zai-org/GLM-5.2-FP8"
+
+# Optional reasoning control for OpenAI-compatible endpoints (ignored for
+# Anthropic): "default" (endpoint decides), "none" (disable thinking),
+# "low", "medium", "high", "max". GLM-5.x only honors "none", "high"
+# (balanced) and "max" (deepest, its default); it treats low/medium as max.
+reasoning_effort = "none"
+
+system_prompt = """You are a helpful AI assistant with access to tools via MCP (Model Context Protocol).
+Available tools come from multiple MCP servers as indicated by the [server_name] prefix in tool descriptions. You can use any combination of tools to help the user.
+This is an interactive conversation. The user can ask follow-up questions and you should maintain context from previous exchanges.
+Key guidelines:
+1. Always start by finding out the current date, time and timezone.
+2. Use tools to gather information, perform actions, and solve problems. BE PROACTIVE!!!
+3. Be conversational and refer back to previous interactions when relevant.
+4. Always cross-reference multiple sources, not only from news medias but also leverage the power of social media too. Do prioritize x/twitter!
+5. Desired workflow: use X/Twitter, then Telegram (World News channel, there's a chat open), web search for news and photos/images, then before and after satellite images when possible or when it applies to the issue being investigated.
+6. If you need to perform multiple related actions, plan your approach, explain it and execute it.
+7. Always explain what you're doing when using tools. Say exactly why you are calling a tool just before calling and briefly explain what you got right after.
+8. Handle errors gracefully and try alternative approaches if needed.
+9. Keep responses concise but informative.
+10. Present photos, images, diagrams, etc. whenever possible to substanciate your analysis.
+11. When presenting images, diagrams, or photos, always verify the URL is directly accessible before including it in the response. Search engine proxy URLs (e.g., imgs.search.brave.com, t0.gstatic.com, Bing image CDN) are session-bound, cryptographically signed, and expire — they will appear broken to the user. Extract and present only the original source URL from the publisher's domain, or explicitly warn the user if the image cannot be verified as accessible.
+12. When saving media URLs to databases, store both the ephemeral proxy reference (for traceability) and the original publisher URL, with a boolean verified_accessible flag. Before writing, perform a lightweight HTTP HEAD check on the original URL to confirm it returns 200 OK. If the original is paywalled, blocked, or unavailable, flag it as proxied_only: true so future queries know the image exists but cannot be hotlinked.
+13. Use satellite imagery only for stories involving observable physical or geographic change, such as natural disasters, conflicts, infrastructure damage, or environmental events. Do not use satellite imagery for political statements, interviews, court proceedings, or other stories where the evidence is documentary, testimonial, or institutional rather than geographic.
+14. When downloading satellite imagery, always provide output_path=/app/images/<descriptive_filename>.png to save directly to disk. Use the path returned in saved_to to upload the image via resonate_upload_event_image.
+"""
+
+[display]
+# Show every discovered MCP tool in the startup message. The connected-server
+# and total-tool counts are always shown.
+show_mcp_tool_list = false
+
+[[mcp_servers]]
+name = "docker-mcp-gateway"
+type = "streamable-http"
+url = "http://mcp-gateway:8811/mcp"
+```
+
+### For telegram
+
+We need a ``TELEGRAM_API_ID`` and a ``TELEGRAM_API_HASH``. They can be obtained from [https://my.telegram.org/apps](https://my.telegram.org/apps)
+
+Then, 
+
+```bash
+git clone https://github.com/chigwell/telegram-mcp.git
+cd telegram-mcp
+uv sync
+uv run session_string_generator.py
+```
+Follow the prompts. Save the generated session string securely. It will be configured in ``config/secrets.env`` with the api id and hash. 
 
 ### 3. Create the configuration files
 
@@ -68,6 +213,11 @@ configured.
 Do **not** copy your host `~/.docker/config.json`: host files typically
 contain `credsStore` or `currentContext` entries that break inside the
 gateway container. The file must contain plain `auths` entries only.
+
+For the PAT (personal access token):
+``GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)`
+
+Generate new token, tick read:packages (and write:packages if pushing)
 
 Generate it with an isolated config directory (use a `read:packages` classic
 PAT as the password — see step 2):
@@ -192,6 +342,9 @@ and `latest`, and prints (does not run) the `docker push` commands. Pushing
 requires `docker login ghcr.io` with a **classic PAT** that has
 `write:packages` (pasted at the password prompt — GHCR rejects account
 passwords with `denied: denied`).
+
+For the MCP server images, see
+[docs/PUBLISHING-MCP-SERVERS.md](docs/PUBLISHING-MCP-SERVERS.md).
 
 ## Troubleshooting
 
