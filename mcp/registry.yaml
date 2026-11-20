@@ -27,5 +27,5 @@ registry:
     enabled: true
   sentinelhub-mcp:
     enabled: true
-  gdelt:
+  gdelt-v2:
     enabled: true

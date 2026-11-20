@@ -116,71 +116,81 @@ registry:
     volumes:
       - resonate2_images-data:/app/images
 
-
-  gdelt:
-    title: GDELT
+  gdelt-v2:
+    name: gdelt-v2
+    title: GDELT (DOC + TV)
     type: server
-    image: ghcr.io/heig-resonate/mcp-gdelt:latest
-    description: Search global news articles and images through the GDELT DOC 2.0 API.
-    readme: https://github.com/HEIG-RESONATE/mcp-gdelt#docker-mcp-gateway
-    allowHosts:
-      - api.gdeltproject.org:443
+    image: ghcr.io/cyanheads/gdelt-mcp-server:latest   # better: pin a version tag
+    description: GDELT news coverage, tone timelines, themes and US TV transcripts
     env:
-      - name: GDELT_API_TIMEOUT
-        value: "{{gdelt.api_timeout}}"
-      - name: GDELT_API_BASE_URL
-        value: "{{gdelt.api_base_url}}"
-      - name: GDELT_DEFAULT_MAX_RECORDS
-        value: "{{gdelt.default_max_records}}"
-      - name: GDELT_DEFAULT_TIMESPAN
-        value: "{{gdelt.default_timespan}}"
-      - name: GDELT_USER_AGENT
-        value: "{{gdelt.user_agent}}"
-      - name: LOG_LEVEL
-        value: "{{gdelt.log_level}}"
-    tools:
-      - name: search_articles
-        description: Search GDELT global news articles.
-        annotations:
-          readOnlyHint: true
-          idempotentHint: true
-          openWorldHint: true
-      - name: search_images
-        description: Search GDELT Visual Knowledge Graph images.
-        annotations:
-          readOnlyHint: true
-          idempotentHint: true
-          openWorldHint: true
-    config:
-      - name: gdelt
-        description: Optional GDELT API and logging settings.
-        type: object
-        properties:
-          api_timeout:
-            type: number
-            description: GDELT request timeout in milliseconds.
-            default: 30000
-            minimum: 1000
-          api_base_url:
-            type: string
-            description: GDELT DOC 2.0 endpoint. Keep the default when using the network allowlist.
-            default: https://api.gdeltproject.org/api/v2/doc/doc
-          default_max_records:
-            type: number
-            description: Default number of records returned by a search.
-            default: 50
-            minimum: 1
-            maximum: 250
-          default_timespan:
-            type: string
-            description: Default GDELT search timespan.
-            default: 1month
-          user_agent:
-            type: string
-            description: HTTP User-Agent sent to GDELT.
-            default: GDELT-MCP-Server/1.0
-          log_level:
-            type: string
-            description: Server log level.
-            default: info
-            enum: [debug, info, warn, error]
+      - name: MCP_TRANSPORT_TYPE
+        value: stdio
+
+#  gdelt:
+#    title: GDELT
+#    type: server
+#    image: ghcr.io/heig-resonate/mcp-gdelt:latest
+#    description: Search global news articles and images through the GDELT DOC 2.0 API.
+#    readme: https://github.com/HEIG-RESONATE/mcp-gdelt#docker-mcp-gateway
+#    allowHosts:
+#      - api.gdeltproject.org:443
+#    env:
+#      - name: GDELT_API_TIMEOUT
+#        value: "{{gdelt.api_timeout}}"
+#      - name: GDELT_API_BASE_URL
+#        value: "{{gdelt.api_base_url}}"
+#      - name: GDELT_DEFAULT_MAX_RECORDS
+#        value: "{{gdelt.default_max_records}}"
+#      - name: GDELT_DEFAULT_TIMESPAN
+#        value: "{{gdelt.default_timespan}}"
+#      - name: GDELT_USER_AGENT
+#        value: "{{gdelt.user_agent}}"
+#      - name: LOG_LEVEL
+#        value: "{{gdelt.log_level}}"
+#    tools:
+#      - name: search_articles
+#        description: Search GDELT global news articles.
+#        annotations:
+#          readOnlyHint: true
+#          idempotentHint: true
+#          openWorldHint: true
+#      - name: search_images
+#        description: Search GDELT Visual Knowledge Graph images.
+#        annotations:
+#          readOnlyHint: true
+#          idempotentHint: true
+#          openWorldHint: true
+#    config:
+#      - name: gdelt
+#        description: Optional GDELT API and logging settings.
+#        type: object
+#        properties:
+#          api_timeout:
+#            type: number
+#            description: GDELT request timeout in milliseconds.
+#            default: 30000
+#            minimum: 1000
+#          api_base_url:
+#            type: string
+#            description: GDELT DOC 2.0 endpoint. Keep the default when using the network allowlist.
+#            default: https://api.gdeltproject.org/api/v2/doc/doc
+#          default_max_records:
+#            type: number
+#            description: Default number of records returned by a search.
+#            default: 50
+#            minimum: 1
+#            maximum: 250
+#          default_timespan:
+#            type: string
+#            description: Default GDELT search timespan.
+#            default: 1month
+#          user_agent:
+#            type: string
+#            description: HTTP User-Agent sent to GDELT.
+#            default: GDELT-MCP-Server/1.0
+#          log_level:
+#            type: string
+#            description: Server log level.
+#            default: info
+#            enum: [debug, info, warn, error]
+##
